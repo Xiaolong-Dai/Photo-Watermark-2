@@ -17,6 +17,14 @@
                                 <MenuItem mnemonicParsing="false" onAction="#handleImportFolder" text="Import Folder..."/>
                             </items>
                         </Menu>
+                        <Menu mnemonicParsing="false" text="Template">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handleSaveTemplate" text="Save Template..."/>
+                                <MenuItem mnemonicParsing="false" onAction="#handleLoadTemplate" text="Load Template..."/>
+                                <SeparatorMenuItem mnemonicParsing="false" />
+                                <Menu fx:id="myTemplatesMenu" mnemonicParsing="false" text="My Templates" />
+                            </items>
+                        </Menu>
                     </menus>
                 </MenuBar>
             </children>
