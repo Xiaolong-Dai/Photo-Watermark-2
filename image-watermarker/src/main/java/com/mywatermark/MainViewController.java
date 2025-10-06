@@ -1,5 +1,7 @@
 package com.mywatermark;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
@@ -25,10 +27,16 @@ import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class MainViewController {
 
@@ -57,6 +65,7 @@ public class MainViewController {
     @FXML private TextField imageWatermarkField;
     @FXML private Slider imageOpacitySlider;
     @FXML private Slider imageScaleSlider;
+    @FXML private Menu myTemplatesMenu;
     //</editor-fold>
 
     private final ObservableList<File> imageFiles = FXCollections.observableArrayList();
@@ -68,6 +77,7 @@ public class MainViewController {
     private int watermarkX = 0;
     private int watermarkY = 0;
     private double watermarkRotation = 0;
+    private final Path templatesDir = Paths.get(System.getProperty("user.home"), ".photo-watermark-templates");
 
     @FXML
     public void initialize() {
@@ -113,6 +123,8 @@ public class MainViewController {
         formatBox.setValue("PNG");
         qualitySlider.visibleProperty().bind(formatBox.valueProperty().isEqualTo("JPEG"));
         qualityLabel.visibleProperty().bind(formatBox.valueProperty().isEqualTo("JPEG"));
+
+        loadTemplatesMenu();
     }
 
     //<editor-fold desc="File Import">
@@ -361,6 +373,117 @@ public class MainViewController {
         } finally {
             writer.dispose();
         }
+    }
+    //</editor-fold>
+
+    //<editor-fold desc="Template Management">
+    @FXML
+    private void handleSaveTemplate() {
+        TextInputDialog dialog = new TextInputDialog("My-Template");
+        dialog.setTitle("Save Template");
+        dialog.setHeaderText("Enter a name for your template:");
+        dialog.showAndWait().ifPresent(name -> {
+            WatermarkSettings settings = new WatermarkSettings();
+            // Populate settings from UI controls
+            settings.text = watermarkTextField.getText();
+            settings.color = colorPicker.getValue().toString();
+            settings.opacity = opacitySlider.getValue();
+            settings.imageWatermarkPath = (imageWatermarkFile != null) ? imageWatermarkFile.getAbsolutePath() : null;
+            settings.imageOpacity = imageOpacitySlider.getValue();
+            settings.imageScale = imageScaleSlider.getValue();
+            settings.x = watermarkX;
+            settings.y = watermarkY;
+            settings.rotation = watermarkRotation;
+
+            try {
+                if (!Files.exists(templatesDir)) {
+                    Files.createDirectories(templatesDir);
+                }
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                try (FileWriter writer = new FileWriter(templatesDir.resolve(name + ".json").toFile())) {
+                    gson.toJson(settings, writer);
+                }
+                loadTemplatesMenu(); // Refresh menu
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    @FXML
+    private void handleLoadTemplate() {
+        try {
+            if (!Files.exists(templatesDir)) {
+                Files.createDirectories(templatesDir);
+            }
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Load Template");
+            fileChooser.setInitialDirectory(templatesDir.toFile());
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json"));
+            File file = fileChooser.showOpenDialog(null);
+            if (file != null) {
+                loadTemplateFromFile(file);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadTemplateFromFile(File file) {
+        try (FileReader reader = new FileReader(file)) {
+            Gson gson = new Gson();
+            WatermarkSettings settings = gson.fromJson(reader, WatermarkSettings.class);
+            applySettings(settings);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void applySettings(WatermarkSettings settings) {
+        watermarkTextField.setText(settings.text);
+        colorPicker.setValue(Color.valueOf(settings.color));
+        opacitySlider.setValue(settings.opacity);
+        if (settings.imageWatermarkPath != null) {
+            imageWatermarkFile = new File(settings.imageWatermarkPath);
+            imageWatermarkField.setText(imageWatermarkFile.getName());
+        }
+        imageOpacitySlider.setValue(settings.imageOpacity);
+        imageScaleSlider.setValue(settings.imageScale);
+        watermarkX = settings.x;
+        watermarkY = settings.y;
+        watermarkRotation = settings.rotation;
+        rotationSlider.setValue(watermarkRotation);
+        updatePositionFields();
+        updatePreview();
+    }
+
+    private void loadTemplatesMenu() {
+        myTemplatesMenu.getItems().clear();
+        if (!Files.exists(templatesDir) || !Files.isDirectory(templatesDir)) {
+            return;
+        }
+        try (Stream<Path> files = Files.list(templatesDir)) {
+            files.filter(f -> f.toString().endsWith(".json")).forEach(f -> {
+                String name = f.getFileName().toString().replace(".json", "");
+                MenuItem item = new MenuItem(name);
+                item.setOnAction(e -> loadTemplateFromFile(f.toFile()));
+                myTemplatesMenu.getItems().add(item);
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static class WatermarkSettings {
+        public String text;
+        public String color;
+        public double opacity;
+        public String imageWatermarkPath;
+        public double imageOpacity;
+        public double imageScale;
+        public int x;
+        public int y;
+        public double rotation;
     }
     //</editor-fold>
 }
