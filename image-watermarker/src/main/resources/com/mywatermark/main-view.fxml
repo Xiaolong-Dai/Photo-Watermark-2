@@ -86,6 +86,34 @@
                         </GridPane>
                     </content>
                 </TitledPane>
+                <TitledPane text="Export" collapsible="false">
+                    <content>
+                        <GridPane hgap="10" vgap="10">
+                            <padding>
+                                <Insets top="10.0"/>
+                            </padding>
+                            <children>
+                                <Label text="Output:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                                <TextField fx:id="outputDirField" editable="false" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                                <Button text="..." onAction="#handleSelectOutputDir" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+
+                                <Label text="Naming:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                                <ComboBox fx:id="namingConventionBox" GridPane.rowIndex="1" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                <Label text="Prefix/Suffix:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                                <TextField fx:id="prefixSuffixField" GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                <Label text="Format:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                                <ComboBox fx:id="formatBox" GridPane.rowIndex="3" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                <Label fx:id="qualityLabel" text="Quality:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                                <Slider fx:id="qualitySlider" min="0" max="100" value="80" GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                <Button fx:id="exportButton" text="Export" onAction="#handleExport" maxWidth="Infinity" GridPane.rowIndex="5" GridPane.columnIndex="0" GridPane.columnSpan="3"/>
+                            </children>
+                        </GridPane>
+                    </content>
+                </TitledPane>
             </children>
         </VBox>
     </right>
