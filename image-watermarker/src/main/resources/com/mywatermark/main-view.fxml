@@ -53,12 +53,39 @@
 
                                 <Label text="Opacity:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
                                 <Slider fx:id="opacitySlider" min="0" max="1" value="0.5" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
-
                             </children>
                         </GridPane>
                     </content>
                 </TitledPane>
-                <Button text="Preview Watermark" onAction="#handlePreviewWatermark" maxWidth="Infinity"/>
+                <TitledPane text="Layout" collapsible="false">
+                    <content>
+                        <GridPane hgap="5" vgap="5">
+                            <padding>
+                                <Insets top="10.0"/>
+                            </padding>
+                            <children>
+                                <Button text="↖" onAction="#handlePositionTopLeft" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                                <Button text="↑" onAction="#handlePositionTopCenter" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                                <Button text="↗" onAction="#handlePositionTopRight" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                                <Button text="←" onAction="#handlePositionCenterLeft" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                                <Button text="+" onAction="#handlePositionCenter" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                                <Button text="→" onAction="#handlePositionCenterRight" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                                <Button text="↙" onAction="#handlePositionBottomLeft" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                                <Button text="↓" onAction="#handlePositionBottomCenter" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                                <Button text="↘" onAction="#handlePositionBottomRight" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+
+                                <Label text="X:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                                <TextField fx:id="xField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                                <Label text="Y:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                                <TextField fx:id="yField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                                <Label text="Rotation:" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+                                <Slider fx:id="rotationSlider" min="-180" max="180" value="0" GridPane.rowIndex="5" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+                            </children>
+                        </GridPane>
+                    </content>
+                </TitledPane>
             </children>
         </VBox>
     </right>
