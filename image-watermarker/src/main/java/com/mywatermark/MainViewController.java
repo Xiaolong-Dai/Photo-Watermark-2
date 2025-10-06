@@ -4,17 +4,18 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXML;
-import javafx.scene.control.ColorPicker;
-import javafx.scene.control.ListView;
-import javafx.scene.control.Slider;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -24,10 +25,12 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 public class MainViewController {
 
+    //<editor-fold desc="FXML Fields">
     @FXML
     private ListView<File> imageListView;
     @FXML
@@ -44,9 +47,25 @@ public class MainViewController {
     private TextField xField;
     @FXML
     private TextField yField;
+    @FXML
+    private TextField outputDirField;
+    @FXML
+    private ComboBox<String> namingConventionBox;
+    @FXML
+    private TextField prefixSuffixField;
+    @FXML
+    private ComboBox<String> formatBox;
+    @FXML
+    private Slider qualitySlider;
+    @FXML
+    private Label qualityLabel;
+    @FXML
+    private Button exportButton;
+    //</editor-fold>
 
     private final ObservableList<File> imageFiles = FXCollections.observableArrayList();
     private File currentImageFile;
+    private File outputDirectory;
 
     private int watermarkX = 0;
     private int watermarkY = 0;
@@ -55,7 +74,6 @@ public class MainViewController {
     @FXML
     public void initialize() {
         imageListView.setItems(imageFiles);
-
         imageListView.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null) {
                 currentImageFile = newValue;
@@ -65,9 +83,10 @@ public class MainViewController {
 
         colorPicker.setValue(Color.WHITE);
 
-        watermarkTextField.textProperty().addListener((obs, oldText, newText) -> updatePreview());
-        colorPicker.valueProperty().addListener((obs, oldColor, newColor) -> updatePreview());
-        opacitySlider.valueProperty().addListener((obs, oldVal, newVal) -> updatePreview());
+        // Watermark control listeners
+        watermarkTextField.textProperty().addListener(obs -> updatePreview());
+        colorPicker.valueProperty().addListener(obs -> updatePreview());
+        opacitySlider.valueProperty().addListener(obs -> updatePreview());
         rotationSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             watermarkRotation = newVal.doubleValue();
             updatePreview();
@@ -76,20 +95,26 @@ public class MainViewController {
             try {
                 watermarkX = Integer.parseInt(newText);
                 updatePreview();
-            } catch (NumberFormatException e) {
-                // Ignore invalid input
-            }
+            } catch (NumberFormatException e) { /* Ignore */ }
         });
         yField.textProperty().addListener((obs, oldText, newText) -> {
             try {
                 watermarkY = Integer.parseInt(newText);
                 updatePreview();
-            } catch (NumberFormatException e) {
-                // Ignore invalid input
-            }
+            } catch (NumberFormatException e) { /* Ignore */ }
         });
+
+        // Export control setup
+        namingConventionBox.setItems(FXCollections.observableArrayList("Original", "Prefix", "Suffix"));
+        namingConventionBox.setValue("Original");
+        formatBox.setItems(FXCollections.observableArrayList("PNG", "JPEG"));
+        formatBox.setValue("PNG");
+
+        qualitySlider.visibleProperty().bind(formatBox.valueProperty().isEqualTo("JPEG"));
+        qualityLabel.visibleProperty().bind(formatBox.valueProperty().isEqualTo("JPEG"));
     }
 
+    //<editor-fold desc="File Import">
     @FXML
     private void handleImportImages() {
         FileChooser fileChooser = new FileChooser();
@@ -98,7 +123,6 @@ public class MainViewController {
                 new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp")
         );
         List<File> selectedFiles = fileChooser.showOpenMultipleDialog(null);
-
         if (selectedFiles != null) {
             imageFiles.addAll(selectedFiles);
         }
@@ -109,69 +133,61 @@ public class MainViewController {
         DirectoryChooser directoryChooser = new DirectoryChooser();
         directoryChooser.setTitle("Import Folder");
         File selectedDirectory = directoryChooser.showDialog(null);
-
         if (selectedDirectory != null) {
             File[] files = selectedDirectory.listFiles((dir, name) ->
                     name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".jpg") ||
                     name.toLowerCase().endsWith(".jpeg") || name.toLowerCase().endsWith(".bmp"));
-
             if (files != null) {
                 imageFiles.addAll(Arrays.asList(files));
             }
         }
     }
+    //</editor-fold>
 
+    //<editor-fold desc="Watermark & Preview">
     private void updatePreview() {
-        if (currentImageFile == null) {
-            return;
-        }
-
+        if (currentImageFile == null) return;
         try {
             BufferedImage originalImage = ImageIO.read(currentImageFile);
-            BufferedImage watermarkedImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
-
-            Graphics2D g2d = watermarkedImage.createGraphics();
-            g2d.drawImage(originalImage, 0, 0, null);
-
-            String text = watermarkTextField.getText();
-            if (text != null && !text.isEmpty()) {
-                Color fxColor = colorPicker.getValue();
-                java.awt.Color awtColor = new java.awt.Color((float) fxColor.getRed(), (float) fxColor.getGreen(), (float) fxColor.getBlue(), (float) opacitySlider.getValue());
-                g2d.setColor(awtColor);
-                g2d.setFont(new Font("Arial", Font.BOLD, 48));
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                FontMetrics fm = g2d.getFontMetrics();
-                int textWidth = fm.stringWidth(text);
-
-                // Save the original transform
-                AffineTransform originalTransform = g2d.getTransform();
-
-                // Rotate the graphics context
-                g2d.rotate(Math.toRadians(watermarkRotation), watermarkX + textWidth / 2.0, watermarkY);
-
-                g2d.drawString(text, watermarkX, watermarkY + fm.getAscent());
-
-                // Restore the original transform
-                g2d.setTransform(originalTransform);
-            }
-
-            g2d.dispose();
-
-            Image fxImage = SwingFXUtils.toFXImage(watermarkedImage, null);
-            imagePreviewView.setImage(fxImage);
-
+            BufferedImage watermarkedImage = addWatermark(originalImage);
+            imagePreviewView.setImage(SwingFXUtils.toFXImage(watermarkedImage, null));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
+    private BufferedImage addWatermark(BufferedImage originalImage) {
+        BufferedImage watermarkedImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = watermarkedImage.createGraphics();
+        g2d.drawImage(originalImage, 0, 0, null);
+
+        String text = watermarkTextField.getText();
+        if (text != null && !text.isEmpty()) {
+            Color fxColor = colorPicker.getValue();
+            java.awt.Color awtColor = new java.awt.Color((float) fxColor.getRed(), (float) fxColor.getGreen(), (float) fxColor.getBlue(), (float) opacitySlider.getValue());
+            g2d.setColor(awtColor);
+            g2d.setFont(new Font("Arial", Font.BOLD, 48));
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            FontMetrics fm = g2d.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+
+            AffineTransform originalTransform = g2d.getTransform();
+            g2d.rotate(Math.toRadians(watermarkRotation), watermarkX + textWidth / 2.0, watermarkY);
+            g2d.drawString(text, watermarkX, watermarkY + fm.getAscent());
+            g2d.setTransform(originalTransform);
+        }
+        g2d.dispose();
+        return watermarkedImage;
+    }
+    //</editor-fold>
+
+    //<editor-fold desc="Layout & Positioning">
     private void updatePositionFields() {
         xField.setText(String.valueOf(watermarkX));
         yField.setText(String.valueOf(watermarkY));
     }
 
-    // --- Position Handlers ---
     @FXML private void handlePositionTopLeft() { setPosition(0, 0); }
     @FXML private void handlePositionTopCenter() { setPosition(1, 0); }
     @FXML private void handlePositionTopRight() { setPosition(2, 0); }
@@ -184,18 +200,15 @@ public class MainViewController {
 
     private void setPosition(int hPos, int vPos) { // 0=left/top, 1=center, 2=right/bottom
         if (currentImageFile == null) return;
-
         try {
             BufferedImage image = ImageIO.read(currentImageFile);
             FontMetrics fm = getFontMetrics();
             int textWidth = fm.stringWidth(watermarkTextField.getText());
 
-            // Horizontal
-            if (hPos == 0) watermarkX = 10; // margin
+            if (hPos == 0) watermarkX = 10;
             else if (hPos == 1) watermarkX = (image.getWidth() - textWidth) / 2;
             else watermarkX = image.getWidth() - textWidth - 10;
 
-            // Vertical (y is the baseline)
             if (vPos == 0) watermarkY = 0;
             else if (vPos == 1) watermarkY = (image.getHeight() - fm.getHeight()) / 2;
             else watermarkY = image.getHeight() - fm.getHeight() - 10;
@@ -215,4 +228,88 @@ public class MainViewController {
         g2d.dispose();
         return fm;
     }
+    //</editor-fold>
+
+    //<editor-fold desc="Export">
+    @FXML
+    private void handleSelectOutputDir() {
+        DirectoryChooser directoryChooser = new DirectoryChooser();
+        directoryChooser.setTitle("Select Output Directory");
+        File selectedDirectory = directoryChooser.showDialog(null);
+        if (selectedDirectory != null) {
+            outputDirectory = selectedDirectory;
+            outputDirField.setText(outputDirectory.getAbsolutePath());
+        }
+    }
+
+    @FXML
+    private void handleExport() {
+        if (imageFiles.isEmpty() || outputDirectory == null) {
+            new Alert(Alert.AlertType.WARNING, "Please import images and select an output directory first.").showAndWait();
+            return;
+        }
+
+        // Check if output directory is same as any source directory
+        for (File file : imageFiles) {
+            if (outputDirectory.equals(file.getParentFile())) {
+                new Alert(Alert.AlertType.ERROR, "Output directory cannot be the same as the source directory.").showAndWait();
+                return;
+            }
+        }
+
+        for (File file : imageFiles) {
+            try {
+                BufferedImage originalImage = ImageIO.read(file);
+                BufferedImage watermarkedImage = addWatermark(originalImage);
+
+                String format = formatBox.getValue();
+                File outputFile = new File(outputDirectory, getOutputFileName(file.getName(), format));
+
+                if (format.equals("JPEG")) {
+                    saveAsJPEG(watermarkedImage, outputFile);
+                } else {
+                    ImageIO.write(watermarkedImage, "png", outputFile);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                new Alert(Alert.AlertType.ERROR, "Error exporting file: " + file.getName()).showAndWait();
+            }
+        }
+
+        new Alert(Alert.AlertType.INFORMATION, "Export complete!").showAndWait();
+    }
+
+    private String getOutputFileName(String originalName, String format) {
+        String nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
+        String ext = format.toLowerCase();
+        String namingConvention = namingConventionBox.getValue();
+        String prefixSuffix = prefixSuffixField.getText();
+
+        return switch (namingConvention) {
+            case "Prefix" -> prefixSuffix + nameWithoutExt + "." + ext;
+            case "Suffix" -> nameWithoutExt + prefixSuffix + "." + ext;
+            default -> originalName.substring(0, originalName.lastIndexOf('.')) + "." + ext; // Original
+        };
+    }
+
+    private void saveAsJPEG(BufferedImage image, File file) throws IOException {
+        ImageWriter writer = null;
+        Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("jpeg");
+        if (iter.hasNext()) {
+            writer = iter.next();
+        }
+        if (writer == null) throw new IOException("No JPEG writer found");
+
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        param.setCompressionQuality((float) (qualitySlider.getValue() / 100.0));
+
+        try (ImageOutputStream out = ImageIO.createImageOutputStream(file)) {
+            writer.setOutput(out);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+    }
+    //</editor-fold>
 }
