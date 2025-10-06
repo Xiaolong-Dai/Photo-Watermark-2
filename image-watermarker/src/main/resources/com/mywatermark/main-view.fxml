@@ -1,11 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Label?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/17"
-      fx:controller="com.mywatermark.MainViewController">
-    <children>
-        <Label text="Welcome to the Photo Watermark Tool!"/>
-    </children>
-</VBox>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/17" fx:controller="com.mywatermark.MainViewController">
+    <top>
+        <VBox>
+            <children>
+                <MenuBar>
+                    <menus>
+                        <Menu mnemonicParsing="false" text="File">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handleImportImages" text="Import Images..."/>
+                                <MenuItem mnemonicParsing="false" onAction="#handleImportFolder" text="Import Folder..."/>
+                            </items>
+                        </Menu>
+                    </menus>
+                </MenuBar>
+            </children>
+        </VBox>
+    </top>
+    <left>
+        <ListView fx:id="imageListView" prefWidth="200.0">
+            <BorderPane.margin>
+                <Insets right="5.0"/>
+            </BorderPane.margin>
+        </ListView>
+    </left>
+    <center>
+        <ImageView fx:id="imagePreviewView" fitHeight="400.0" fitWidth="600.0" pickOnBounds="true" preserveRatio="true"/>
+    </center>
+</BorderPane>
