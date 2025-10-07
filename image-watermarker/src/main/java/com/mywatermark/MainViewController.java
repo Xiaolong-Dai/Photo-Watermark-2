@@ -36,9 +36,13 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public class MainViewController {
+
+    private static final Logger logger = Logger.getLogger(MainViewController.class.getName());
 
     private enum WatermarkMode { TEXT, IMAGE }
 
@@ -83,6 +87,7 @@ public class MainViewController {
 
     @FXML
     public void initialize() {
+        logger.info("Application initializing...");
         imageListView.setItems(imageFiles);
         imageListView.getSelectionModel().selectedItemProperty().addListener((obs, ov, nv) -> {
             if (nv != null) {
@@ -115,8 +120,14 @@ public class MainViewController {
         imageOpacitySlider.valueProperty().addListener(obs -> updatePreview());
         imageScaleSlider.valueProperty().addListener(obs -> updatePreview());
         rotationSlider.valueProperty().addListener((obs, ov, nv) -> { watermarkRotation = nv.doubleValue(); updatePreview(); });
-        xField.textProperty().addListener((obs, ov, nv) -> { try { watermarkX = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) { showErrorAlert("Invalid Input", "Please enter a valid number for the X coordinate.");} });
-        yField.textProperty().addListener((obs, ov, nv) -> { try { watermarkY = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) { showErrorAlert("Invalid Input", "Please enter a valid number for the Y coordinate.");} });
+        xField.textProperty().addListener((obs, ov, nv) -> { try { watermarkX = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) { 
+            showErrorAlert("Invalid Input", "Please enter a valid number for the X coordinate.");
+            logger.warning("Invalid X coordinate input: " + nv);
+        } });
+        yField.textProperty().addListener((obs, ov, nv) -> { try { watermarkY = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) { 
+            showErrorAlert("Invalid Input", "Please enter a valid number for the Y coordinate.");
+            logger.warning("Invalid Y coordinate input: " + nv);
+        } });
 
         // Export setup
         namingConventionBox.setItems(FXCollections.observableArrayList("Original", "Prefix", "Suffix"));
@@ -140,6 +151,7 @@ public class MainViewController {
         List<File> selectedFiles = fileChooser.showOpenMultipleDialog(null);
         if (selectedFiles != null) {
             imageFiles.addAll(selectedFiles);
+            logger.info("Imported " + selectedFiles.size() + " image(s).");
         }
     }
 
@@ -149,17 +161,21 @@ public class MainViewController {
         directoryChooser.setTitle("Import Folder");
         File selectedDirectory = directoryChooser.showDialog(null);
         if (selectedDirectory != null) {
+            logger.info("Importing from folder: " + selectedDirectory.getAbsolutePath());
             try {
                 File[] files = selectedDirectory.listFiles((dir, name) ->
                         name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".jpg") ||
                         name.toLowerCase().endsWith(".jpeg") || name.toLowerCase().endsWith(".bmp"));
                 if (files != null) {
                     imageFiles.addAll(Arrays.asList(files));
+                    logger.info("Found " + files.length + " image(s) in folder.");
                 } else {
                     showErrorAlert("Import Error", "Could not list files in the selected directory. Check folder permissions.");
+                    logger.warning("Could not list files in directory: " + selectedDirectory.getAbsolutePath());
                 }
             } catch (SecurityException e) {
                 showErrorAlert("Import Error", "Could not access the selected directory due to security restrictions.");
+                logger.log(Level.SEVERE, "Security exception when accessing directory: " + selectedDirectory.getAbsolutePath(), e);
             }
         }
     }
@@ -172,12 +188,14 @@ public class MainViewController {
             BufferedImage originalImage = ImageIO.read(currentImageFile);
             if (originalImage == null) {
                 showErrorAlert("Image Load Error", "Could not read the image file: " + currentImageFile.getName() + ". The file may be corrupt or in an unsupported format.");
+                logger.warning("ImageIO.read returned null for: " + currentImageFile.getAbsolutePath());
                 return;
             }
             BufferedImage watermarkedImage = addWatermark(originalImage);
             imagePreviewView.setImage(SwingFXUtils.toFXImage(watermarkedImage, null));
         } catch (IOException e) {
             showErrorAlert("Image Load Error", "An I/O error occurred while reading the file: " + currentImageFile.getName());
+            logger.log(Level.SEVERE, "IOException in updatePreview for: " + currentImageFile.getAbsolutePath(), e);
         }
     }
 
@@ -228,6 +246,7 @@ public class MainViewController {
             BufferedImage watermark = ImageIO.read(imageWatermarkFile);
             if (watermark == null) {
                 showErrorAlert("Watermark Load Error", "Could not read the watermark image file: " + imageWatermarkFile.getName() + ". It may be corrupt or unsupported.");
+                logger.warning("ImageIO.read returned null for watermark file: " + imageWatermarkFile.getAbsolutePath());
                 return;
             }
             double scale = imageScaleSlider.getValue();
@@ -243,6 +262,7 @@ public class MainViewController {
 
         } catch (IOException e) {
             showErrorAlert("Watermark Load Error", "An I/O error occurred while loading the watermark image.");
+            logger.log(Level.SEVERE, "IOException in addImageWatermark for: " + imageWatermarkFile.getAbsolutePath(), e);
         }
     }
 
@@ -282,6 +302,7 @@ public class MainViewController {
             BufferedImage image = ImageIO.read(currentImageFile);
             if (image == null) {
                 showErrorAlert("Image Load Error", "Could not read the image file to calculate position.");
+                logger.warning("setPosition could not read image file: " + currentImageFile.getAbsolutePath());
                 return;
             }
             int itemWidth = 0;
@@ -295,6 +316,7 @@ public class MainViewController {
                 BufferedImage watermark = ImageIO.read(imageWatermarkFile);
                 if (watermark == null) {
                     showErrorAlert("Watermark Load Error", "Could not read the watermark image file to calculate position.");
+                    logger.warning("setPosition could not read watermark file: " + imageWatermarkFile.getAbsolutePath());
                     return;
                 }
                 itemWidth = (int) (watermark.getWidth() * imageScaleSlider.getValue());
@@ -313,6 +335,7 @@ public class MainViewController {
             updatePreview();
         } catch (IOException e) {
             showErrorAlert("Image Processing Error", "An error occurred while setting watermark position.");
+            logger.log(Level.SEVERE, "IOException in setPosition", e);
         }
     }
 
@@ -392,6 +415,7 @@ public class MainViewController {
                 writer = iter.next();
             } else {
                 showErrorAlert("Export Error", "No JPEG writer found on this system.");
+                logger.severe("No JPEG writer found.");
                 return false;
             }
 
@@ -402,6 +426,7 @@ public class MainViewController {
             try (ImageOutputStream out = ImageIO.createImageOutputStream(file)) {
                 if (out == null) {
                     showErrorAlert("Export Error", "Could not create output stream for file: " + file.getName());
+                    logger.severe("ImageIO.createImageOutputStream returned null for: " + file.getAbsolutePath());
                     return false;
                 }
                 writer.setOutput(out);
@@ -410,6 +435,7 @@ public class MainViewController {
             return true;
         } catch (IOException e) {
             showErrorAlert("Export Error", "An error occurred while saving JPEG file " + file.getName() + ": " + e.getMessage());
+            logger.log(Level.SEVERE, "IOException in saveAsJPEG for: " + file.getAbsolutePath(), e);
             return false;
         } finally {
             if (writer != null) {
@@ -431,6 +457,7 @@ public class MainViewController {
 
         @Override
         protected String call() throws Exception {
+            logger.info("Export task started for " + files.size() + " file(s).");
             int successCount = 0;
             int failCount = 0;
             int total = files.size();
@@ -443,6 +470,7 @@ public class MainViewController {
                 try {
                     BufferedImage originalImage = ImageIO.read(file);
                     if (originalImage == null) {
+                        logger.warning("Skipping file (could not read): " + file.getAbsolutePath());
                         failCount++;
                         continue;
                     }
@@ -461,16 +489,20 @@ public class MainViewController {
                     if (success) {
                         successCount++;
                     } else {
+                        logger.severe("Failed to write output file: " + outputFile.getAbsolutePath());
                         failCount++;
                     }
                 } catch (IOException e) {
+                    logger.log(Level.SEVERE, "IOException during export for file: " + file.getAbsolutePath(), e);
                     failCount++;
                 }
             }
 
             updateProgress(total, total);
             updateMessage("Finishing up...");
-            return String.format("Export complete!\n\nSuccessful: %d\nFailed: %d", successCount, failCount);
+            String resultMessage = String.format("Export complete!\n\nSuccessful: %d\nFailed: %d", successCount, failCount);
+            logger.info("Export task finished. " + resultMessage.replace("\n", " "));
+            return resultMessage;
         }
     }
     //</editor-fold>
@@ -508,10 +540,12 @@ public class MainViewController {
                 try (FileWriter writer = new FileWriter(templateFile)) {
                     gson.toJson(settings, writer);
                 }
+                logger.info("Template saved: " + templateFile.getAbsolutePath());
                 loadTemplatesMenu(); // Refresh menu
                 new Alert(Alert.AlertType.INFORMATION, "Template '" + name + "' saved successfully.").showAndWait();
             } catch (IOException e) {
                 showErrorAlert("Save Error", "Could not save template '" + name + "': " + e.getMessage());
+                logger.log(Level.SEVERE, "Error saving template: " + name, e);
             }
         });
     }
@@ -532,20 +566,24 @@ public class MainViewController {
             }
         } catch (IOException e) {
             showErrorAlert("Load Error", "Could not access the templates directory: " + e.getMessage());
+            logger.log(Level.SEVERE, "Could not access templates directory: " + templatesDir, e);
         }
     }
 
     private void loadTemplateFromFile(File file) {
+        logger.info("Loading template from: " + file.getAbsolutePath());
         try (FileReader reader = new FileReader(file)) {
             Gson gson = new Gson();
             WatermarkSettings settings = gson.fromJson(reader, WatermarkSettings.class);
             if (settings == null) {
                 showErrorAlert("Load Error", "The template file is empty or corrupt: " + file.getName());
+                logger.warning("Template file is empty or corrupt: " + file.getAbsolutePath());
                 return;
             }
             applySettings(settings);
         } catch (Exception e) {
             showErrorAlert("Load Error", "Failed to load or apply template '" + file.getName() + "'. The file may be corrupt or incompatible. Error: " + e.getMessage());
+            logger.log(Level.SEVERE, "Failed to load or apply template: " + file.getAbsolutePath(), e);
         }
     }
 
@@ -565,6 +603,7 @@ public class MainViewController {
         rotationSlider.setValue(watermarkRotation);
         updatePositionFields();
         updatePreview();
+        logger.info("Applied settings from template.");
     }
 
     private void loadTemplatesMenu() {
@@ -582,6 +621,7 @@ public class MainViewController {
             });
         } catch (IOException e) {
             showErrorAlert("Menu Error", "Could not load templates for the menu: " + e.getMessage());
+            logger.log(Level.WARNING, "Could not load templates for menu.", e);
         }
     }
 
