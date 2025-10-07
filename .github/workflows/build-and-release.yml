@@ -28,17 +28,13 @@ jobs:
         cd image-watermarker
         mvn clean package -DskipTests
         
-    - name: Create Windows Executable (app-image)
+    - name: Create Windows Executable
       run: |
         cd image-watermarker
-        # Create a portable app image first since WiX might not be available
-        jpackage --input target --name "Photo Watermark" --app-version "${{ github.ref_name }}" --vendor "My Watermark Inc." --dest target/app-package --main-jar image-watermarker-1.0-SNAPSHOT.jar --main-class com.mywatermark.App --type app-image
+        # Create a Windows executable installer using jpackage
+        # GitHub Actions Windows runners have WiX toolset pre-installed
+        jpackage --input target --name "Photo Watermark" --app-version "${{ github.ref_name }}" --vendor "My Watermark Inc." --dest target/release --main-jar image-watermarker-1.0-SNAPSHOT.jar --main-class com.mywatermark.App --type exe --win-dir-chooser --win-menu --win-shortcut
         
-    - name: Zip the app image for distribution
-      run: |
-        cd image-watermarker/target
-        Compress-Archive -Path app-package\* -DestinationPath Photo-Watermark-${{ github.ref_name }}.zip
-          
     - name: Create Release
       uses: actions/create-release@v1
       env:
@@ -49,12 +45,12 @@ jobs:
         draft: false
         prerelease: false
         
-    - name: Upload Release Asset (ZIP)
+    - name: Upload Release Asset (EXE)
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create-release.outputs.upload_url }}
-        asset_path: ./image-watermarker/target/Photo-Watermark-${{ github.ref_name }}.zip
-        asset_name: Photo-Watermark-${{ github.ref_name }}.zip
-        asset_content_type: application/zip
+        asset_path: ./image-watermarker/target/release/Photo Watermark.exe
+        asset_name: Photo-Watermark-${{ github.ref_name }}.exe
+        asset_content_type: application/vnd.microsoft.portable-executable
