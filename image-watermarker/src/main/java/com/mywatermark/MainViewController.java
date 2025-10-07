@@ -387,7 +387,9 @@ public class MainViewController {
 
         // Change cursor to wait
         Scene scene = exportButton.getScene();
-        scene.cursorProperty().bind(exportTask.runningProperty().asObjectExpression(() -> exportTask.isRunning() ? Cursor.WAIT : Cursor.DEFAULT));
+        exportTask.runningProperty().addListener((obs, wasRunning, isRunning) -> {
+            scene.setCursor(isRunning ? Cursor.WAIT : Cursor.DEFAULT);
+        });
 
         exportTask.setOnSucceeded(e -> {
             new Alert(Alert.AlertType.INFORMATION, exportTask.getValue()).showAndWait();
