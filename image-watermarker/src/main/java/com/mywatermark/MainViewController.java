@@ -66,6 +66,8 @@ public class MainViewController {
     @FXML private Slider imageOpacitySlider;
     @FXML private Slider imageScaleSlider;
     @FXML private Menu myTemplatesMenu;
+    @FXML private ProgressBar exportProgressBar;
+    @FXML private Label exportProgressLabel;
     //</editor-fold>
 
     private final ObservableList<File> imageFiles = FXCollections.observableArrayList();
@@ -350,43 +352,23 @@ public class MainViewController {
             }
         }
 
-        int successCount = 0;
-        int failCount = 0;
+        ExportTask exportTask = new ExportTask(imageFiles, outputDirectory);
 
-        for (File file : imageFiles) {
-            try {
-                BufferedImage originalImage = ImageIO.read(file);
-                if (originalImage == null) {
-                    showErrorAlert("Export Error", "Skipping file " + file.getName() + ": could not be read.");
-                    failCount++;
-                    continue;
-                }
+        exportProgressBar.visibleProperty().bind(exportTask.runningProperty());
+        exportProgressLabel.visibleProperty().bind(exportTask.runningProperty());
+        exportProgressBar.progressProperty().bind(exportTask.progressProperty());
+        exportProgressLabel.textProperty().bind(exportTask.messageProperty());
+        exportButton.disableProperty().bind(exportTask.runningProperty());
 
-                BufferedImage watermarkedImage = addWatermark(originalImage);
-                String format = formatBox.getValue();
-                File outputFile = new File(outputDirectory, getOutputFileName(file.getName(), format));
+        exportTask.setOnSucceeded(e -> {
+            new Alert(Alert.AlertType.INFORMATION, exportTask.getValue()).showAndWait();
+        });
 
-                boolean success;
-                if (format.equals("JPEG")) {
-                    success = saveAsJPEG(watermarkedImage, outputFile);
-                } else {
-                    success = ImageIO.write(watermarkedImage, "png", outputFile);
-                }
+        exportTask.setOnFailed(e -> {
+            showErrorAlert("Export Failed", "An unexpected error occurred during the export process.");
+        });
 
-                if (success) {
-                    successCount++;
-                } else {
-                    failCount++;
-                    showErrorAlert("Export Error", "Failed to write file: " + outputFile.getName());
-                }
-
-            } catch (IOException e) {
-                failCount++;
-                showErrorAlert("Export Error", "An unexpected error occurred while exporting " + file.getName() + ": " + e.getMessage());
-            }
-        }
-
-        new Alert(Alert.AlertType.INFORMATION, String.format("Export complete!\n\nSuccessful: %d\nFailed: %d", successCount, failCount)).showAndWait();
+        new Thread(exportTask).start();
     }
 
     private String getOutputFileName(String originalName, String format) {
@@ -433,6 +415,62 @@ public class MainViewController {
             if (writer != null) {
                 writer.dispose();
             }
+        }
+    }
+    //</editor-fold>
+
+    //<editor-fold desc="Export Task">
+    private class ExportTask extends javafx.concurrent.Task<String> {
+        private final List<File> files;
+        private final File outputDir;
+
+        public ExportTask(List<File> files, File outputDir) {
+            this.files = files;
+            this.outputDir = outputDir;
+        }
+
+        @Override
+        protected String call() throws Exception {
+            int successCount = 0;
+            int failCount = 0;
+            int total = files.size();
+
+            for (int i = 0; i < total; i++) {
+                File file = files.get(i);
+                updateProgress(i, total);
+                updateMessage(String.format("Processing %d of %d: %s", i + 1, total, file.getName()));
+
+                try {
+                    BufferedImage originalImage = ImageIO.read(file);
+                    if (originalImage == null) {
+                        failCount++;
+                        continue;
+                    }
+
+                    BufferedImage watermarkedImage = addWatermark(originalImage);
+                    String format = formatBox.getValue();
+                    File outputFile = new File(outputDir, getOutputFileName(file.getName(), format));
+
+                    boolean success;
+                    if (format.equals("JPEG")) {
+                        success = saveAsJPEG(watermarkedImage, outputFile);
+                    } else {
+                        success = ImageIO.write(watermarkedImage, "png", outputFile);
+                    }
+
+                    if (success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (IOException e) {
+                    failCount++;
+                }
+            }
+
+            updateProgress(total, total);
+            updateMessage("Finishing up...");
+            return String.format("Export complete!\n\nSuccessful: %d\nFailed: %d", successCount, failCount);
         }
     }
     //</editor-fold>

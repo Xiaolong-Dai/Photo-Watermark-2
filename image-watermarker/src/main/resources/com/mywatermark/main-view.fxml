@@ -143,7 +143,13 @@
                                 <Label fx:id="qualityLabel" text="Quality:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
                                 <Slider fx:id="qualitySlider" min="0" max="100" value="80" GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
 
-                                <Button fx:id="exportButton" text="Export" onAction="#handleExport" maxWidth="Infinity" GridPane.rowIndex="5" GridPane.columnIndex="0" GridPane.columnSpan="3"/>
+                                <VBox spacing="5" GridPane.rowIndex="5" GridPane.columnIndex="0" GridPane.columnSpan="3">
+                                    <children>
+                                        <Button fx:id="exportButton" text="Export" onAction="#handleExport" maxWidth="Infinity"/>
+                                        <Label fx:id="exportProgressLabel" text="Progress..." visible="false"/>
+                                        <ProgressBar fx:id="exportProgressBar" progress="0.0" maxWidth="Infinity" visible="false"/>
+                                    </children>
+                                </VBox>
                             </children>
                         </GridPane>
                     </content>
