@@ -28,12 +28,17 @@ jobs:
         cd image-watermarker
         mvn clean package -DskipTests
         
-    - name: Create Windows Executable
+    - name: Create Windows Executable (app-image)
       run: |
-        # Install WiX toolset for jpackage (it should already be available on windows-latest)
         cd image-watermarker
-        jpackage --input target --name "Photo Watermark" --app-version ${{ github.ref_name }} --vendor "My Watermark Inc." --dest target/dist --main-jar image-watermarker-1.0-SNAPSHOT.jar --main-class com.mywatermark.App --type exe --win-dir-chooser --win-menu --win-shortcut
+        # Create a portable app image first since WiX might not be available
+        jpackage --input target --name "Photo Watermark" --app-version "${{ github.ref_name }}" --vendor "My Watermark Inc." --dest target/app-package --main-jar image-watermarker-1.0-SNAPSHOT.jar --main-class com.mywatermark.App --type app-image
         
+    - name: Zip the app image for distribution
+      run: |
+        cd image-watermarker/target
+        Compress-Archive -Path app-package\* -DestinationPath Photo-Watermark-${{ github.ref_name }}.zip
+          
     - name: Create Release
       uses: actions/create-release@v1
       env:
@@ -44,12 +49,12 @@ jobs:
         draft: false
         prerelease: false
         
-    - name: Upload Release Asset
+    - name: Upload Release Asset (ZIP)
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create-release.outputs.upload_url }}
-        asset_path: ./image-watermarker/target/dist/Photo Watermark.exe
-        asset_name: Photo-Watermark-${{ github.ref_name }}.exe
-        asset_content_type: application/vnd.microsoft.portable-executable
+        asset_path: ./image-watermarker/target/Photo-Watermark-${{ github.ref_name }}.zip
+        asset_name: Photo-Watermark-${{ github.ref_name }}.zip
+        asset_content_type: application/zip
