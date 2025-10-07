@@ -113,8 +113,8 @@ public class MainViewController {
         imageOpacitySlider.valueProperty().addListener(obs -> updatePreview());
         imageScaleSlider.valueProperty().addListener(obs -> updatePreview());
         rotationSlider.valueProperty().addListener((obs, ov, nv) -> { watermarkRotation = nv.doubleValue(); updatePreview(); });
-        xField.textProperty().addListener((obs, ov, nv) -> { try { watermarkX = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) {} });
-        yField.textProperty().addListener((obs, ov, nv) -> { try { watermarkY = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) {} });
+        xField.textProperty().addListener((obs, ov, nv) -> { try { watermarkX = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) { showErrorAlert("Invalid Input", "Please enter a valid number for the X coordinate.");} });
+        yField.textProperty().addListener((obs, ov, nv) -> { try { watermarkY = Integer.parseInt(nv); updatePreview(); } catch (NumberFormatException e) { showErrorAlert("Invalid Input", "Please enter a valid number for the Y coordinate.");} });
 
         // Export setup
         namingConventionBox.setItems(FXCollections.observableArrayList("Original", "Prefix", "Suffix"));
@@ -147,11 +147,17 @@ public class MainViewController {
         directoryChooser.setTitle("Import Folder");
         File selectedDirectory = directoryChooser.showDialog(null);
         if (selectedDirectory != null) {
-            File[] files = selectedDirectory.listFiles((dir, name) ->
-                    name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".jpg") ||
-                    name.toLowerCase().endsWith(".jpeg") || name.toLowerCase().endsWith(".bmp"));
-            if (files != null) {
-                imageFiles.addAll(Arrays.asList(files));
+            try {
+                File[] files = selectedDirectory.listFiles((dir, name) ->
+                        name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".jpg") ||
+                        name.toLowerCase().endsWith(".jpeg") || name.toLowerCase().endsWith(".bmp"));
+                if (files != null) {
+                    imageFiles.addAll(Arrays.asList(files));
+                } else {
+                    showErrorAlert("Import Error", "Could not list files in the selected directory. Check folder permissions.");
+                }
+            } catch (SecurityException e) {
+                showErrorAlert("Import Error", "Could not access the selected directory due to security restrictions.");
             }
         }
     }
@@ -162,11 +168,23 @@ public class MainViewController {
         if (currentImageFile == null) return;
         try {
             BufferedImage originalImage = ImageIO.read(currentImageFile);
+            if (originalImage == null) {
+                showErrorAlert("Image Load Error", "Could not read the image file: " + currentImageFile.getName() + ". The file may be corrupt or in an unsupported format.");
+                return;
+            }
             BufferedImage watermarkedImage = addWatermark(originalImage);
             imagePreviewView.setImage(SwingFXUtils.toFXImage(watermarkedImage, null));
         } catch (IOException e) {
-            e.printStackTrace();
+            showErrorAlert("Image Load Error", "An I/O error occurred while reading the file: " + currentImageFile.getName());
         }
+    }
+
+    private void showErrorAlert(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 
     private BufferedImage addWatermark(BufferedImage originalImage) {
@@ -206,6 +224,10 @@ public class MainViewController {
     private void addImageWatermark(Graphics2D g2d) {
         try {
             BufferedImage watermark = ImageIO.read(imageWatermarkFile);
+            if (watermark == null) {
+                showErrorAlert("Watermark Load Error", "Could not read the watermark image file: " + imageWatermarkFile.getName() + ". It may be corrupt or unsupported.");
+                return;
+            }
             double scale = imageScaleSlider.getValue();
             int width = (int) (watermark.getWidth() * scale);
             int height = (int) (watermark.getHeight() * scale);
@@ -218,7 +240,7 @@ public class MainViewController {
             g2d.setTransform(originalTransform);
 
         } catch (IOException e) {
-            e.printStackTrace();
+            showErrorAlert("Watermark Load Error", "An I/O error occurred while loading the watermark image.");
         }
     }
 
@@ -256,6 +278,10 @@ public class MainViewController {
         if (currentImageFile == null) return;
         try {
             BufferedImage image = ImageIO.read(currentImageFile);
+            if (image == null) {
+                showErrorAlert("Image Load Error", "Could not read the image file to calculate position.");
+                return;
+            }
             int itemWidth = 0;
             int itemHeight = 0;
 
@@ -265,6 +291,10 @@ public class MainViewController {
                 itemHeight = fm.getHeight();
             } else if (imageWatermarkFile != null) {
                 BufferedImage watermark = ImageIO.read(imageWatermarkFile);
+                if (watermark == null) {
+                    showErrorAlert("Watermark Load Error", "Could not read the watermark image file to calculate position.");
+                    return;
+                }
                 itemWidth = (int) (watermark.getWidth() * imageScaleSlider.getValue());
                 itemHeight = (int) (watermark.getHeight() * imageScaleSlider.getValue());
             }
@@ -280,7 +310,7 @@ public class MainViewController {
             updatePositionFields();
             updatePreview();
         } catch (IOException e) {
-            e.printStackTrace();
+            showErrorAlert("Image Processing Error", "An error occurred while setting watermark position.");
         }
     }
 
@@ -315,31 +345,48 @@ public class MainViewController {
 
         for (File file : imageFiles) {
             if (outputDirectory.equals(file.getParentFile())) {
-                new Alert(Alert.AlertType.ERROR, "Output directory cannot be the same as the source directory.").showAndWait();
+                showErrorAlert("Invalid Directory", "Output directory cannot be the same as the source directory to prevent overwriting original files.");
                 return;
             }
         }
 
+        int successCount = 0;
+        int failCount = 0;
+
         for (File file : imageFiles) {
             try {
                 BufferedImage originalImage = ImageIO.read(file);
-                BufferedImage watermarkedImage = addWatermark(originalImage);
+                if (originalImage == null) {
+                    showErrorAlert("Export Error", "Skipping file " + file.getName() + ": could not be read.");
+                    failCount++;
+                    continue;
+                }
 
+                BufferedImage watermarkedImage = addWatermark(originalImage);
                 String format = formatBox.getValue();
                 File outputFile = new File(outputDirectory, getOutputFileName(file.getName(), format));
 
+                boolean success;
                 if (format.equals("JPEG")) {
-                    saveAsJPEG(watermarkedImage, outputFile);
+                    success = saveAsJPEG(watermarkedImage, outputFile);
                 } else {
-                    ImageIO.write(watermarkedImage, "png", outputFile);
+                    success = ImageIO.write(watermarkedImage, "png", outputFile);
                 }
+
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    showErrorAlert("Export Error", "Failed to write file: " + outputFile.getName());
+                }
+
             } catch (IOException e) {
-                e.printStackTrace();
-                new Alert(Alert.AlertType.ERROR, "Error exporting file: " + file.getName()).showAndWait();
+                failCount++;
+                showErrorAlert("Export Error", "An unexpected error occurred while exporting " + file.getName() + ": " + e.getMessage());
             }
         }
 
-        new Alert(Alert.AlertType.INFORMATION, "Export complete!").showAndWait();
+        new Alert(Alert.AlertType.INFORMATION, String.format("Export complete!\n\nSuccessful: %d\nFailed: %d", successCount, failCount)).showAndWait();
     }
 
     private String getOutputFileName(String originalName, String format) {
@@ -355,23 +402,37 @@ public class MainViewController {
         };
     }
 
-    private void saveAsJPEG(BufferedImage image, File file) throws IOException {
+    private boolean saveAsJPEG(BufferedImage image, File file) {
         ImageWriter writer = null;
-        Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("jpeg");
-        if (iter.hasNext()) {
-            writer = iter.next();
-        }
-        if (writer == null) throw new IOException("No JPEG writer found");
+        try {
+            Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("jpeg");
+            if (iter.hasNext()) {
+                writer = iter.next();
+            } else {
+                showErrorAlert("Export Error", "No JPEG writer found on this system.");
+                return false;
+            }
 
-        ImageWriteParam param = writer.getDefaultWriteParam();
-        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-        param.setCompressionQuality((float) (qualitySlider.getValue() / 100.0));
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality((float) (qualitySlider.getValue() / 100.0));
 
-        try (ImageOutputStream out = ImageIO.createImageOutputStream(file)) {
-            writer.setOutput(out);
-            writer.write(null, new IIOImage(image, null, null), param);
+            try (ImageOutputStream out = ImageIO.createImageOutputStream(file)) {
+                if (out == null) {
+                    showErrorAlert("Export Error", "Could not create output stream for file: " + file.getName());
+                    return false;
+                }
+                writer.setOutput(out);
+                writer.write(null, new IIOImage(image, null, null), param);
+            }
+            return true;
+        } catch (IOException e) {
+            showErrorAlert("Export Error", "An error occurred while saving JPEG file " + file.getName() + ": " + e.getMessage());
+            return false;
         } finally {
-            writer.dispose();
+            if (writer != null) {
+                writer.dispose();
+            }
         }
     }
     //</editor-fold>
@@ -383,6 +444,11 @@ public class MainViewController {
         dialog.setTitle("Save Template");
         dialog.setHeaderText("Enter a name for your template:");
         dialog.showAndWait().ifPresent(name -> {
+            if (name.isEmpty() || !name.matches("[a-zA-Z0-9_-]+")) {
+                showErrorAlert("Invalid Name", "Template name can only contain letters, numbers, hyphens, and underscores.");
+                return;
+            }
+
             WatermarkSettings settings = new WatermarkSettings();
             // Populate settings from UI controls
             settings.text = watermarkTextField.getText();
@@ -400,12 +466,14 @@ public class MainViewController {
                     Files.createDirectories(templatesDir);
                 }
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();
-                try (FileWriter writer = new FileWriter(templatesDir.resolve(name + ".json").toFile())) {
+                File templateFile = templatesDir.resolve(name + ".json").toFile();
+                try (FileWriter writer = new FileWriter(templateFile)) {
                     gson.toJson(settings, writer);
                 }
                 loadTemplatesMenu(); // Refresh menu
+                new Alert(Alert.AlertType.INFORMATION, "Template '" + name + "' saved successfully.").showAndWait();
             } catch (IOException e) {
-                e.printStackTrace();
+                showErrorAlert("Save Error", "Could not save template '" + name + "': " + e.getMessage());
             }
         });
     }
@@ -425,7 +493,7 @@ public class MainViewController {
                 loadTemplateFromFile(file);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            showErrorAlert("Load Error", "Could not access the templates directory: " + e.getMessage());
         }
     }
 
@@ -433,9 +501,13 @@ public class MainViewController {
         try (FileReader reader = new FileReader(file)) {
             Gson gson = new Gson();
             WatermarkSettings settings = gson.fromJson(reader, WatermarkSettings.class);
+            if (settings == null) {
+                showErrorAlert("Load Error", "The template file is empty or corrupt: " + file.getName());
+                return;
+            }
             applySettings(settings);
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            showErrorAlert("Load Error", "Failed to load or apply template '" + file.getName() + "'. The file may be corrupt or incompatible. Error: " + e.getMessage());
         }
     }
 
@@ -460,6 +532,7 @@ public class MainViewController {
     private void loadTemplatesMenu() {
         myTemplatesMenu.getItems().clear();
         if (!Files.exists(templatesDir) || !Files.isDirectory(templatesDir)) {
+            // Don't show an error if the directory just doesn't exist yet.
             return;
         }
         try (Stream<Path> files = Files.list(templatesDir)) {
@@ -470,7 +543,7 @@ public class MainViewController {
                 myTemplatesMenu.getItems().add(item);
             });
         } catch (IOException e) {
-            e.printStackTrace();
+            showErrorAlert("Menu Error", "Could not load templates for the menu: " + e.getMessage());
         }
     }
 
