@@ -100,6 +100,10 @@ The project follows a structured 10-stage development process:
 9. **Packaging**: Create Windows executable with jpackage
 10. **Optimization**: Performance, error handling, UI improvements
 
+## 📦 Download
+
+You can download the latest Windows executable from the [Releases](https://github.com/Xiaolong-Dai/Photo-Watermark-2/releases) section of this repository.
+
 ## 🤝 Contributing
 
 1. Fork the repository
