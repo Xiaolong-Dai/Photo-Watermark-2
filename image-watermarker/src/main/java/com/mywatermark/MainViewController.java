@@ -75,6 +75,10 @@ public class MainViewController {
     @FXML private Menu myTemplatesMenu;
     @FXML private ProgressBar exportProgressBar;
     @FXML private Label exportProgressLabel;
+    @FXML private ComboBox<String> fontComboBox;
+    @FXML private Slider fontSizeSlider;
+    @FXML private CheckBox boldCheckBox;
+    @FXML private CheckBox italicCheckBox;
     //</editor-fold>
 
     private final ObservableList<File> imageFiles = FXCollections.observableArrayList();
@@ -143,7 +147,39 @@ public class MainViewController {
         // Add drag functionality to preview pane
         addDragFunctionality();
 
+        // Initialize font selection
+        initializeFontSelection();
+
         loadTemplatesMenu();
+    }
+
+    private void initializeFontSelection() {
+        // Get all available fonts and populate the combo box
+        java.awt.GraphicsEnvironment ge = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
+        String[] fontNames = ge.getAvailableFontFamilyNames();
+        fontComboBox.getItems().addAll(fontNames);
+        fontComboBox.setValue("Arial");
+
+        // Set up font size slider
+        if (fontSizeSlider != null) {
+            fontSizeSlider.setMin(8);
+            fontSizeSlider.setMax(120);
+            fontSizeSlider.setValue(48);
+        }
+
+        // Add listeners for font properties
+        if (fontComboBox != null) {
+            fontComboBox.valueProperty().addListener(obs -> updatePreview());
+        }
+        if (fontSizeSlider != null) {
+            fontSizeSlider.valueProperty().addListener(obs -> updatePreview());
+        }
+        if (boldCheckBox != null) {
+            boldCheckBox.selectedProperty().addListener(obs -> updatePreview());
+        }
+        if (italicCheckBox != null) {
+            italicCheckBox.selectedProperty().addListener(obs -> updatePreview());
+        }
     }
 
     private void addDragFunctionality() {
@@ -265,21 +301,51 @@ public class MainViewController {
     //</editor-fold>
 
     //<editor-fold desc="Watermark & Preview">
+    // Debounce mechanism for preview updates to improve performance
+    private volatile boolean isPreviewUpdating = false;
+    
     private void updatePreview() {
-        if (currentImageFile == null) return;
-        try {
-            BufferedImage originalImage = ImageIO.read(currentImageFile);
-            if (originalImage == null) {
-                showErrorAlert("Image Load Error", "Could not read the image file: " + currentImageFile.getName() + ". The file may be corrupt or in an unsupported format.");
-                logger.warning("ImageIO.read returned null for: " + currentImageFile.getAbsolutePath());
-                return;
+        if (currentImageFile == null || isPreviewUpdating) return;
+        
+        // Use a separate thread for preview updates to prevent UI freezing
+        new Thread(() -> {
+            if (isPreviewUpdating) return; // Double-check after thread starts
+            isPreviewUpdating = true;
+            
+            try {
+                BufferedImage originalImage = ImageIO.read(currentImageFile);
+                if (originalImage == null) {
+                    showErrorAlert("Image Load Error", "Could not read the image file: " + currentImageFile.getName() + ". The file may be corrupt or in an unsupported format.");
+                    logger.warning("ImageIO.read returned null for: " + currentImageFile.getAbsolutePath());
+                    return;
+                }
+                BufferedImage watermarkedImage = addWatermark(originalImage);
+                
+                // Run UI update on JavaFX Application Thread
+                javafx.application.Platform.runLater(() -> {
+                    imagePreviewView.setImage(SwingFXUtils.toFXImage(watermarkedImage, null));
+                    isPreviewUpdating = false;
+                });
+            } catch (OutOfMemoryError e) {
+                logger.log(Level.SEVERE, "Out of memory error during preview: " + currentImageFile.getAbsolutePath(), e);
+                javafx.application.Platform.runLater(() -> {
+                    showErrorAlert("Memory Error", "The image file is too large to process. Please try a smaller image.");
+                    isPreviewUpdating = false;
+                });
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "IOException in updatePreview for: " + currentImageFile.getAbsolutePath(), e);
+                javafx.application.Platform.runLater(() -> {
+                    showErrorAlert("Image Load Error", "An I/O error occurred while reading the file: " + currentImageFile.getName());
+                    isPreviewUpdating = false;
+                });
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "Unexpected error in updatePreview for: " + currentImageFile.getAbsolutePath(), e);
+                javafx.application.Platform.runLater(() -> {
+                    showErrorAlert("Error", "An unexpected error occurred: " + e.getMessage());
+                    isPreviewUpdating = false;
+                });
             }
-            BufferedImage watermarkedImage = addWatermark(originalImage);
-            imagePreviewView.setImage(SwingFXUtils.toFXImage(watermarkedImage, null));
-        } catch (IOException e) {
-            showErrorAlert("Image Load Error", "An I/O error occurred while reading the file: " + currentImageFile.getName());
-            logger.log(Level.SEVERE, "IOException in updatePreview for: " + currentImageFile.getAbsolutePath(), e);
-        }
+        }).start();
     }
 
     private void showErrorAlert(String title, String content) {
@@ -313,7 +379,29 @@ public class MainViewController {
         Color fxColor = colorPicker.getValue();
         java.awt.Color awtColor = new java.awt.Color((float) fxColor.getRed(), (float) fxColor.getGreen(), (float) fxColor.getBlue(), (float) opacitySlider.getValue());
         g2d.setColor(awtColor);
-        g2d.setFont(new Font("Arial", Font.BOLD, 48));
+        
+        // Use a dynamic font based on user selection if available, otherwise default
+        String fontFamily = "Arial";
+        int fontSize = 48;
+        int fontStyle = Font.BOLD;
+        
+        // Check if font is selected and available
+        if (fontComboBox != null && fontComboBox.getValue() != null) {
+            fontFamily = fontComboBox.getValue();
+        }
+        if (fontSizeSlider != null) {
+            fontSize = (int) fontSizeSlider.getValue();
+        }
+        if (boldCheckBox != null && boldCheckBox.isSelected()) {
+            fontStyle = Font.BOLD;
+        } else {
+            fontStyle = Font.PLAIN;
+        }
+        if (italicCheckBox != null && italicCheckBox.isSelected()) {
+            fontStyle |= Font.ITALIC;
+        }
+        
+        g2d.setFont(new Font(fontFamily, fontStyle, fontSize));
 
         FontMetrics fm = g2d.getFontMetrics();
         int textWidth = fm.stringWidth(text);

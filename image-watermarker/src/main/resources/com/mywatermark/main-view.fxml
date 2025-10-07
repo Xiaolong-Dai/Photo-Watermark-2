@@ -78,6 +78,20 @@
 
                                 <Label text="Opacity:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
                                 <Slider fx:id="opacitySlider" min="0" max="1" value="0.5" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                                <Label text="Font:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                                <ComboBox fx:id="fontComboBox" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                                <Label text="Size:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                                <Slider fx:id="fontSizeSlider" min="8" max="120" value="48" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                                <Label text="Style:" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+                                <HBox spacing="5" GridPane.rowIndex="5" GridPane.columnIndex="1">
+                                    <children>
+                                        <CheckBox fx:id="boldCheckBox" text="Bold"/>
+                                        <CheckBox fx:id="italicCheckBox" text="Italic"/>
+                                    </children>
+                                </HBox>
                             </children>
                         </GridPane>
                     </content>
