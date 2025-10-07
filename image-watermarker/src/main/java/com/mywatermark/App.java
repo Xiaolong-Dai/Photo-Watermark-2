@@ -19,8 +19,15 @@ public class App extends Application {
             return;
         }
         Parent root = FXMLLoader.load(fxmlLocation);
+        Scene scene = new Scene(root, 1024, 768);
+        URL cssLocation = getClass().getResource("/com/mywatermark/dark-theme.css");
+        if (cssLocation != null) {
+            scene.getStylesheets().add(cssLocation.toExternalForm());
+        } else {
+            System.err.println("Cannot find CSS file. Please check the path.");
+        }
         primaryStage.setTitle("Photo Watermark Tool");
-        primaryStage.setScene(new Scene(root, 800, 600));
+        primaryStage.setScene(scene);
         primaryStage.show();
     }
 

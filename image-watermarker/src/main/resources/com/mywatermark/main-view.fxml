@@ -38,10 +38,17 @@
         </ListView>
     </left>
     <center>
-        <ImageView fx:id="imagePreviewView" fitHeight="400.0" fitWidth="600.0" pickOnBounds="true" preserveRatio="true"/>
+        <StackPane style="-fx-background-color: derive(-fx-base, -15%);">
+            <children>
+                <ImageView fx:id="imagePreviewView" pickOnBounds="true" preserveRatio="true"/>
+            </children>
+            <BorderPane.margin>
+                <Insets top="5.0" right="5.0" bottom="5.0" left="5.0" />
+            </BorderPane.margin>
+        </StackPane>
     </center>
     <right>
-        <VBox spacing="10.0" prefWidth="250">
+        <VBox spacing="10.0" prefWidth="300">
             <padding>
                 <Insets top="10.0" right="10.0" bottom="10.0" left="10.0" />
             </padding>

@@ -6,6 +6,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXML;
+import javafx.scene.Cursor;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -382,6 +384,10 @@ public class MainViewController {
         exportProgressBar.progressProperty().bind(exportTask.progressProperty());
         exportProgressLabel.textProperty().bind(exportTask.messageProperty());
         exportButton.disableProperty().bind(exportTask.runningProperty());
+
+        // Change cursor to wait
+        Scene scene = exportButton.getScene();
+        scene.cursorProperty().bind(exportTask.runningProperty().asObjectExpression(() -> exportTask.isRunning() ? Cursor.WAIT : Cursor.DEFAULT));
 
         exportTask.setOnSucceeded(e -> {
             new Alert(Alert.AlertType.INFORMATION, exportTask.getValue()).showAndWait();
