@@ -303,27 +303,59 @@ public class MainViewController {
     //<editor-fold desc="Watermark & Preview">
     // Debounce mechanism for preview updates to improve performance
     private volatile boolean isPreviewUpdating = false;
+    private volatile long lastPreviewUpdateTime = 0;
+    private static final long PREVIEW_UPDATE_DEBOUNCE_MS = 100; // 100ms debounce time
     
     private void updatePreview() {
-        if (currentImageFile == null || isPreviewUpdating) return;
+        if (currentImageFile == null) return;
+        
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastPreviewUpdateTime < PREVIEW_UPDATE_DEBOUNCE_MS) {
+            // Schedule update for later if we're updating too frequently
+            javafx.application.Platform.runLater(() -> {
+                // Double-check that enough time has passed before actually updating
+                if (System.currentTimeMillis() - lastPreviewUpdateTime >= PREVIEW_UPDATE_DEBOUNCE_MS && !isPreviewUpdating) {
+                    performPreviewUpdate();
+                }
+            });
+            return;
+        }
+        
+        if (!isPreviewUpdating) {
+            performPreviewUpdate();
+        }
+    }
+    
+    private void performPreviewUpdate() {
+        if (isPreviewUpdating) return;
+        isPreviewUpdating = true;
+        lastPreviewUpdateTime = System.currentTimeMillis();
         
         // Use a separate thread for preview updates to prevent UI freezing
         new Thread(() -> {
-            if (isPreviewUpdating) return; // Double-check after thread starts
-            isPreviewUpdating = true;
-            
             try {
                 BufferedImage originalImage = ImageIO.read(currentImageFile);
                 if (originalImage == null) {
                     showErrorAlert("Image Load Error", "Could not read the image file: " + currentImageFile.getName() + ". The file may be corrupt or in an unsupported format.");
                     logger.warning("ImageIO.read returned null for: " + currentImageFile.getAbsolutePath());
+                    javafx.application.Platform.runLater(() -> isPreviewUpdating = false);
                     return;
                 }
                 BufferedImage watermarkedImage = addWatermark(originalImage);
                 
                 // Run UI update on JavaFX Application Thread
                 javafx.application.Platform.runLater(() -> {
-                    imagePreviewView.setImage(SwingFXUtils.toFXImage(watermarkedImage, null));
+                    // Ensure we're not passing a null image to the ImageView
+                    if (watermarkedImage != null) {
+                        Image fxImage = SwingFXUtils.toFXImage(watermarkedImage, null);
+                        if (fxImage != null) {
+                            imagePreviewView.setImage(fxImage);
+                        } else {
+                            logger.warning("SwingFXUtils.toFXImage returned null for: " + currentImageFile.getName());
+                        }
+                    } else {
+                        logger.warning("Watermarked image is null for: " + currentImageFile.getName());
+                    }
                     isPreviewUpdating = false;
                 });
             } catch (OutOfMemoryError e) {
