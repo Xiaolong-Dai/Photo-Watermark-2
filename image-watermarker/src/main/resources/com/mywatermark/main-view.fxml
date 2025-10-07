@@ -40,7 +40,11 @@
     <center>
         <StackPane style="-fx-background-color: derive(-fx-base, -15%);">
             <children>
-                <ImageView fx:id="imagePreviewView" pickOnBounds="true" preserveRatio="true"/>
+                <Pane fx:id="previewPane" style="-fx-background-color: derive(-fx-base, -15%);">
+                    <children>
+                        <ImageView fx:id="imagePreviewView" pickOnBounds="true" preserveRatio="true"/>
+                    </children>
+                </Pane>
             </children>
             <BorderPane.margin>
                 <Insets top="5.0" right="5.0" bottom="5.0" left="5.0" />

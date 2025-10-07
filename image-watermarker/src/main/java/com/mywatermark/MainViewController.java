@@ -51,6 +51,7 @@ public class MainViewController {
     //<editor-fold desc="FXML Fields">
     @FXML private ListView<File> imageListView;
     @FXML private ImageView imagePreviewView;
+    @FXML private Pane previewPane; // Container for preview to support dragging
     @FXML private TextField watermarkTextField;
     @FXML private ColorPicker colorPicker;
     @FXML private Slider opacitySlider;
@@ -139,8 +140,88 @@ public class MainViewController {
         qualitySlider.visibleProperty().bind(formatBox.valueProperty().isEqualTo("JPEG"));
         qualityLabel.visibleProperty().bind(formatBox.valueProperty().isEqualTo("JPEG"));
 
+        // Add drag functionality to preview pane
+        addDragFunctionality();
+
         loadTemplatesMenu();
     }
+
+    private void addDragFunctionality() {
+        previewPane.setOnMousePressed(event -> {
+            if (currentImageFile != null) {
+                // Capture the starting position of the mouse
+                lastMouseX = event.getX();
+                lastMouseY = event.getY();
+            }
+        });
+
+        previewPane.setOnMouseDragged(event -> {
+            if (currentImageFile != null) {
+                // Calculate the movement delta relative to the preview pane
+                double deltaX = event.getX() - lastMouseX;
+                double deltaY = event.getY() - lastMouseY;
+
+                // Update watermark position based on the delta
+                watermarkX += (int) deltaX;
+                watermarkY += (int) deltaY;
+
+                // Apply boundary checks to keep watermark within image bounds
+                applyBoundaryChecks();
+
+                // Update fields and preview
+                updatePositionFields();
+                updatePreview();
+
+                // Update the last mouse position
+                lastMouseX = event.getX();
+                lastMouseY = event.getY();
+            }
+        });
+    }
+
+    // Apply boundary checks to keep watermark within image bounds
+    private void applyBoundaryChecks() {
+        try {
+            if (currentImageFile != null) {
+                BufferedImage image = ImageIO.read(currentImageFile);
+                if (image != null) {
+                    int itemWidth = 0;
+                    int itemHeight = 0;
+
+                    if (watermarkMode == WatermarkMode.TEXT) {
+                        FontMetrics fm = getFontMetrics();
+                        String text = watermarkTextField.getText();
+                        if (text != null) {
+                            itemWidth = fm.stringWidth(text);
+                            itemHeight = fm.getHeight();
+                        }
+                    } else if (imageWatermarkFile != null) {
+                        BufferedImage watermark = ImageIO.read(imageWatermarkFile);
+                        if (watermark != null) {
+                            itemWidth = (int) (watermark.getWidth() * imageScaleSlider.getValue());
+                            itemHeight = (int) (watermark.getHeight() * imageScaleSlider.getValue());
+                        }
+                    }
+
+                    // Keep watermark within image bounds
+                    if (watermarkX < 0) watermarkX = 0;
+                    if (watermarkY < 0) watermarkY = 0;
+                    if (watermarkX + itemWidth > image.getWidth()) {
+                        watermarkX = Math.max(0, image.getWidth() - itemWidth);
+                    }
+                    if (watermarkY + itemHeight > image.getHeight()) {
+                        watermarkY = Math.max(0, image.getHeight() - itemHeight);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Could not apply boundary checks due to IO error", e);
+        }
+    }
+
+    // Variables to store the last mouse position for dragging
+    private double lastMouseX = 0;
+    private double lastMouseY = 0;
 
     //<editor-fold desc="File Import">
     @FXML
