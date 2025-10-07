@@ -350,6 +350,14 @@ public class MainViewController {
                         Image fxImage = SwingFXUtils.toFXImage(watermarkedImage, null);
                         if (fxImage != null) {
                             imagePreviewView.setImage(fxImage);
+                            
+                            // Properly scale the image to fit the preview pane while maintaining aspect ratio
+                            if (previewPane != null) {
+                                // Set fit properties to scale image within the preview pane
+                                imagePreviewView.setPreserveRatio(true);
+                                imagePreviewView.setFitWidth(previewPane.getWidth());
+                                imagePreviewView.setFitHeight(previewPane.getHeight());
+                            }
                         } else {
                             logger.warning("SwingFXUtils.toFXImage returned null for: " + currentImageFile.getName());
                         }
@@ -389,19 +397,43 @@ public class MainViewController {
     }
 
     private BufferedImage addWatermark(BufferedImage originalImage) {
-        BufferedImage watermarkedImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = watermarkedImage.createGraphics();
-        g2d.drawImage(originalImage, 0, 0, null);
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // Create a compatible image type for the original image format
+        BufferedImage watermarkedImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), 
+            originalImage.getType() == BufferedImage.TYPE_CUSTOM ? BufferedImage.TYPE_INT_RGB : originalImage.getType());
+        
+        // If the image type doesn't support alpha (like JPEG), use RGB
+        if (watermarkedImage.getType() == BufferedImage.TYPE_INT_RGB || 
+            watermarkedImage.getType() == BufferedImage.TYPE_3BYTE_BGR ||
+            watermarkedImage.getType() == BufferedImage.TYPE_4BYTE_ABGR ||
+            watermarkedImage.getType() == BufferedImage.TYPE_BYTE_GRAY) {
+            Graphics2D g2d = watermarkedImage.createGraphics();
+            g2d.drawImage(originalImage, 0, 0, null);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        if (watermarkMode == WatermarkMode.TEXT) {
-            addTextWatermark(g2d);
-        } else if (watermarkMode == WatermarkMode.IMAGE && imageWatermarkFile != null) {
-            addImageWatermark(g2d);
+            if (watermarkMode == WatermarkMode.TEXT) {
+                addTextWatermark(g2d);
+            } else if (watermarkMode == WatermarkMode.IMAGE && imageWatermarkFile != null) {
+                addImageWatermark(g2d);
+            }
+
+            g2d.dispose();
+            return watermarkedImage;
+        } else {
+            // For types that support alpha, use TYPE_INT_ARGB
+            watermarkedImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = watermarkedImage.createGraphics();
+            g2d.drawImage(originalImage, 0, 0, null);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            if (watermarkMode == WatermarkMode.TEXT) {
+                addTextWatermark(g2d);
+            } else if (watermarkMode == WatermarkMode.IMAGE && imageWatermarkFile != null) {
+                addImageWatermark(g2d);
+            }
+
+            g2d.dispose();
+            return watermarkedImage;
         }
-
-        g2d.dispose();
-        return watermarkedImage;
     }
 
     private void addTextWatermark(Graphics2D g2d) {
@@ -409,13 +441,19 @@ public class MainViewController {
         if (text == null || text.isEmpty()) return;
 
         Color fxColor = colorPicker.getValue();
-        java.awt.Color awtColor = new java.awt.Color((float) fxColor.getRed(), (float) fxColor.getGreen(), (float) fxColor.getBlue(), (float) opacitySlider.getValue());
+        // JavaFX Color values are between 0-1, so we need to multiply by 255 for AWT
+        java.awt.Color awtColor = new java.awt.Color(
+            (float) fxColor.getRed(), 
+            (float) fxColor.getGreen(), 
+            (float) fxColor.getBlue(), 
+            (float) opacitySlider.getValue()
+        );
         g2d.setColor(awtColor);
         
         // Use a dynamic font based on user selection if available, otherwise default
         String fontFamily = "Arial";
         int fontSize = 48;
-        int fontStyle = Font.BOLD;
+        int fontStyle = Font.PLAIN; // Default to plain instead of bold
         
         // Check if font is selected and available
         if (fontComboBox != null && fontComboBox.getValue() != null) {
@@ -424,10 +462,9 @@ public class MainViewController {
         if (fontSizeSlider != null) {
             fontSize = (int) fontSizeSlider.getValue();
         }
+        // Combine bold and italic styles appropriately
         if (boldCheckBox != null && boldCheckBox.isSelected()) {
-            fontStyle = Font.BOLD;
-        } else {
-            fontStyle = Font.PLAIN;
+            fontStyle |= Font.BOLD;
         }
         if (italicCheckBox != null && italicCheckBox.isSelected()) {
             fontStyle |= Font.ITALIC;
@@ -543,9 +580,18 @@ public class MainViewController {
     }
 
     private FontMetrics getFontMetrics() {
-        BufferedImage tempImg = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage tempImg = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = tempImg.createGraphics();
-        g2d.setFont(new Font("Arial", Font.BOLD, 48));
+        String fontFamily = fontComboBox != null && fontComboBox.getValue() != null ? fontComboBox.getValue() : "Arial";
+        int fontSize = fontSizeSlider != null ? (int) fontSizeSlider.getValue() : 48;
+        int fontStyle = Font.PLAIN;
+        if (boldCheckBox != null && boldCheckBox.isSelected()) {
+            fontStyle |= Font.BOLD;
+        }
+        if (italicCheckBox != null && italicCheckBox.isSelected()) {
+            fontStyle |= Font.ITALIC;
+        }
+        g2d.setFont(new Font(fontFamily, fontStyle, fontSize));
         FontMetrics fm = g2d.getFontMetrics();
         g2d.dispose();
         return fm;
@@ -619,6 +665,21 @@ public class MainViewController {
     private boolean saveAsJPEG(BufferedImage image, File file) {
         ImageWriter writer = null;
         try {
+            // Convert image to RGB format if it has alpha channel, since JPEG doesn't support transparency
+            BufferedImage rgbImage;
+            if (image.getColorModel().hasAlpha()) {
+                rgbImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g2d = rgbImage.createGraphics();
+                // Draw white background first
+                g2d.setColor(java.awt.Color.WHITE);
+                g2d.fillRect(0, 0, image.getWidth(), image.getHeight());
+                // Then draw the original image
+                g2d.drawImage(image, 0, 0, null);
+                g2d.dispose();
+            } else {
+                rgbImage = image;
+            }
+
             Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("jpeg");
             if (iter.hasNext()) {
                 writer = iter.next();
@@ -639,7 +700,7 @@ public class MainViewController {
                     return false;
                 }
                 writer.setOutput(out);
-                writer.write(null, new IIOImage(image, null, null), param);
+                writer.write(null, new IIOImage(rgbImage, null, null), param);
             }
             return true;
         } catch (IOException e) {
@@ -692,6 +753,7 @@ public class MainViewController {
                     if (format.equals("JPEG")) {
                         success = saveAsJPEG(watermarkedImage, outputFile);
                     } else {
+                        // For PNG, ensure alpha channel is preserved
                         success = ImageIO.write(watermarkedImage, "png", outputFile);
                     }
 
