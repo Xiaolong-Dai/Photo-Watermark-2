@@ -47,7 +47,17 @@ The application can be packaged as a Windows executable using jpackage:
 mvn package
 ```
 
-This will create an installer in the `target/dist` directory.
+This will create an installer in the `target/dist` directory if you have the WiX toolset installed.
+
+### Alternative: Running the JAR directly
+
+If you don't have the WiX toolset installed or prefer to run the application directly:
+
+```bash
+java -jar target/image-watermarker-1.0-SNAPSHOT.jar
+```
+
+This will run the application from the JAR file without needing to create an installer.
 
 ## 🛠️ Development
 
