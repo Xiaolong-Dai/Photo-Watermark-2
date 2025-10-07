@@ -101,13 +101,17 @@
             </goals>
             <configuration>
               <target>
-                <exec executable="${java.home}/bin/jpackage">
+                <exec executable="${java.home}/bin/jpackage" failonerror="false">
                   <arg value="--name"/>
                   <arg value="Photo Watermark"/>
                   <arg value="--app-version"/>
                   <arg value="1.0.0"/>
                   <arg value="--vendor"/>
                   <arg value="My Watermark Inc."/>
+                  <arg value="--description"/>
+                  <arg value="A desktop application for adding watermarks to images."/>
+                  <arg value="--copyright"/>
+                  <arg value="Copyright (c) 2025 My Watermark Inc. All rights reserved."/>
                   <arg value="--dest"/>
                   <arg value="target/dist"/>
                   <arg value="--input"/>
@@ -119,6 +123,8 @@
                   <arg value="--type"/>
                   <arg value="exe"/>
                   <arg value="--win-dir-chooser"/>
+                  <arg value="--win-menu"/>
+                  <arg value="--win-shortcut"/>
                 </exec>
               </target>
             </configuration>
