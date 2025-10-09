@@ -50,6 +50,31 @@ mvn package
 
 This will create an installer in the `target/dist` directory if you have the WiX toolset installed.
 
+### Running the Application
+
+There are several ways to run the application:
+
+1. **Using Maven (Recommended for development)**:
+   ```bash
+   cd image-watermarker
+   mvn javafx:run
+   ```
+
+2. **Using the provided launcher script**:
+   ```cmd
+   launcher.bat
+   ```
+
+3. **Running the fat JAR with dependencies bundled**:
+   ```bash
+   java -cp "image-watermarker/target/image-watermarker-1.0-SNAPSHOT.jar" com.mywatermark.App
+   ```
+
+4. **Using dependency JAR with module path** (if fat JAR approach doesn't work):
+   ```bash
+   java --module-path "image-watermarker/target/lib" --add-modules javafx.controls,javafx.fxml,javafx.swing --add-opens javafx.controls/javafx.scene.control.skin=ALL-UNNAMED --add-opens javafx.graphics/javafx.scene=ALL-UNNAMED --add-opens javafx.base/com.sun.javafx.event=ALL-UNNAMED -jar "image-watermarker/target/image-watermarker-1.0-SNAPSHOT.jar"
+   ```
+
 ### Alternative: Running the JAR directly
 
 If you don't have the WiX toolset installed or prefer to run the application directly:
