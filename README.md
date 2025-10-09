@@ -8,11 +8,12 @@ A Java desktop application for adding watermarks to images with a user-friendly 
 - **Text Watermarks**: Add customizable text watermarks with options for font, color, size, and transparency
 - **Image Watermarks**: Use images (like logos) as watermarks with transparency support
 - **Flexible Positioning**: Place watermarks using nine-grid presets or drag them to any position
-- **Real-time Preview**: See changes as you adjust watermark properties
+- **Real-time Preview**: See changes as you adjust watermark properties with improved scaling that maintains aspect ratio
 - **Batch Processing**: Apply watermarks to multiple images at once
 - **Export Options**: Save to different formats (JPEG/PNG) with custom naming rules
 - **Template System**: Save and reload watermark configurations
 - **Quality Control**: Adjust JPEG quality settings when exporting
+- **Adaptive UI**: Responsive interface with dark theme support and dynamic preview scaling
 
 ## 🚀 Installation & Usage
 
@@ -73,9 +74,10 @@ The application follows the MVC (Model-View-Controller) pattern using JavaFX:
 
 - **Image Import Module**: Handles loading single/multiple images and folders
 - **Watermark Processing Module**: Core logic for applying text and image watermarks
-- **Watermark Layout & Preview Module**: UI for controlling watermark appearance and real-time preview
+- **Watermark Layout & Preview Module**: UI for controlling watermark appearance and real-time preview with adaptive scaling
 - **Image Export Module**: Saves watermarked images with configurable options
 - **Template Management Module**: Save and load watermark configurations
+- **UI Enhancement Module**: Responsive UI with dark theme support and dynamic preview scaling
 
 ### Technologies Used
 
@@ -84,6 +86,7 @@ The application follows the MVC (Model-View-Controller) pattern using JavaFX:
 - **Maven**: Build automation
 - **Gson**: JSON serialization for templates
 - **JUnit 5**: Testing framework
+- **SwingFXUtils**: Image conversion between AWT/Swing and JavaFX
 
 ## 📋 Development Roadmap
 
@@ -98,7 +101,7 @@ The project follows a structured 10-stage development process:
 7. **Image Watermarks**: Support for logo/transparent PNG watermarks
 8. **Template System**: Save/load watermark configurations as JSON
 9. **Packaging**: Create Windows executable with jpackage
-10. **Optimization**: Performance, error handling, UI improvements
+10. **Optimization**: Performance, error handling, UI improvements including adaptive image scaling and responsive design
 
 ## 📦 Download
 
