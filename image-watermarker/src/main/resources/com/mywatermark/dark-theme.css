@@ -15,7 +15,7 @@
 }
 
 .label {
-    -fx-text-fill: -fx-text-fill;
+    -fx-text-fill: white;
 }
 
 .button {
@@ -35,8 +35,8 @@
 }
 
 .text-field, .text-area, .combo-box, .list-view, .table-view {
-    -fx-control-inner-background: -fx-control-inner-background;
-    -fx-text-fill: -fx-text-fill;
+    -fx-control-inner-background: derive(-fx-base, 10%);
+    -fx-text-fill: white;
     -fx-prompt-text-fill: derive(-fx-text-fill, -30%);
     -fx-border-color: derive(-fx-base, 30%);
 }

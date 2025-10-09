@@ -352,12 +352,24 @@ public class MainViewController {
                             imagePreviewView.setImage(fxImage);
                             
                             // Properly scale the image to fit the preview pane while maintaining aspect ratio
-                            if (previewPane != null) {
-                                // Set fit properties to scale image within the preview pane
-                                imagePreviewView.setPreserveRatio(true);
-                                imagePreviewView.setFitWidth(previewPane.getWidth());
-                                imagePreviewView.setFitHeight(previewPane.getHeight());
-                            }
+                            // Use Platform.runLater to ensure UI has been updated and dimensions are available
+                            javafx.application.Platform.runLater(() -> {
+                                if (previewPane != null) {
+                                    // Set fit properties to scale image within the preview pane
+                                    imagePreviewView.setPreserveRatio(true);
+                                    // Use the ScrollPane's viewport dimensions for proper scaling
+                                    imagePreviewView.setFitWidth(previewPane.getWidth());
+                                    imagePreviewView.setFitHeight(previewPane.getHeight());
+                                    
+                                    // Add a listener to handle dynamic resizing of the preview pane
+                                    previewPane.widthProperty().addListener((obs, oldVal, newVal) -> {
+                                        imagePreviewView.setFitWidth(previewPane.getWidth());
+                                    });
+                                    previewPane.heightProperty().addListener((obs, oldVal, newVal) -> {
+                                        imagePreviewView.setFitHeight(previewPane.getHeight());
+                                    });
+                                }
+                            });
                         } else {
                             logger.warning("SwingFXUtils.toFXImage returned null for: " + currentImageFile.getName());
                         }
