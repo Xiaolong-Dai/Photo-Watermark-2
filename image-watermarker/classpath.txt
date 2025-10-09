@@ -1,0 +1,4 @@
+# This file lists the classpath for the application.
+# Use Maven commands to build and run the application instead of direct JAR execution.
+# Run 'mvn clean package' to build the application
+# Run 'mvn javafx:run' to execute the application with proper JavaFX module handling
